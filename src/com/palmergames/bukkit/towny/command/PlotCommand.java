@@ -11,6 +11,7 @@ import com.palmergames.bukkit.towny.confirmations.ConfirmationHandler;
 import com.palmergames.bukkit.towny.confirmations.ConfirmationType;
 import com.palmergames.bukkit.towny.confirmations.GroupConfirmation;
 import com.palmergames.bukkit.towny.event.PlotClearEvent;
+import com.palmergames.bukkit.towny.event.PlotPreClaimAttemptEvent;
 import com.palmergames.bukkit.towny.event.PlotPreClearEvent;
 import com.palmergames.bukkit.towny.event.TownBlockSettingsChangedEvent;
 import com.palmergames.bukkit.towny.exceptions.EconomyException;
@@ -198,7 +199,14 @@ public class PlotCommand extends BaseCommand implements CommandExecutor {
 							throw new TownyException(String.format(TownySettings.getLangString("msg_no_funds_claim"), selection.size(), TownyEconomyHandler.getFormattedBalance(cost)));
 
 						// Start the claim task
-						new PlotClaim(plugin, player, resident, selection, true, false, false).start();
+						TownBlock potentialTownBlock = selection.isEmpty() ? null : selection.get(0).getTownBlock();
+						PlotPreClaimAttemptEvent preClaimAttemptEvent =
+							new PlotPreClaimAttemptEvent(resident, potentialTownBlock == null ? null : potentialTownBlock.getResident(), potentialTownBlock);
+						Bukkit.getPluginManager().callEvent(preClaimAttemptEvent);
+
+						if(!preClaimAttemptEvent.isCancelled()) {
+							new PlotClaim(plugin, player, resident, selection, true, false, false).start();
+						}
 
 					} else {
 						player.sendMessage(TownySettings.getLangString("msg_err_empty_area_selection"));

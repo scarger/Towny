@@ -4,6 +4,7 @@ import com.palmergames.bukkit.towny.Towny;
 import com.palmergames.bukkit.towny.TownyMessaging;
 import com.palmergames.bukkit.towny.TownySettings;
 import com.palmergames.bukkit.towny.TownyUniverse;
+import com.palmergames.bukkit.towny.event.PlotPreClaimAttemptEvent;
 import com.palmergames.bukkit.towny.exceptions.AlreadyRegisteredException;
 import com.palmergames.bukkit.towny.exceptions.EconomyException;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
@@ -18,6 +19,7 @@ import com.palmergames.bukkit.towny.object.WorldCoord;
 import com.palmergames.bukkit.towny.permissions.PermissionNodes;
 import com.palmergames.bukkit.util.BukkitTools;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -62,7 +64,6 @@ public class PlotClaim extends Thread {
 
 	@Override
 	public void run() {
-		
 		int claimed = 0;
 
 		if (player != null){
@@ -71,11 +72,9 @@ public class PlotClaim extends Thread {
 			else
 				TownyMessaging.sendMsg(player, TownySettings.getLangString("msg_process_unclaim"));
 		}
-
+		
 		if (selection != null) {
-			
 			for (WorldCoord worldCoord : selection) {
-				
 				try {
 					if (worldCoord.getTownBlock().hasPlotObjectGroup() && residentGroupClaim(selection)) {
 						claimed++;
@@ -177,8 +176,7 @@ public class PlotClaim extends Thread {
 					Resident owner = townBlock.getPlotObjectGroup().getResident();
 
 					if (group.getPrice() != -1) {
-						// Plot is for sale
-
+						
 						if (TownySettings.isUsingEconomy() && !resident.payTo(group.getPrice(), owner, "Plot Group - Buy From Seller"))
 							throw new TownyException(TownySettings.getLangString("msg_no_money_purchase_plot"));
 
@@ -279,8 +277,7 @@ public class PlotClaim extends Thread {
 				Resident owner = townBlock.getResident();
 
 				if (townBlock.getPlotPrice() != -1) {
-					// Plot is for sale
-
+					
 					if (TownySettings.isUsingEconomy() && !resident.payTo(townBlock.getPlotPrice(), owner, "Plot - Buy From Seller"))
 						throw new TownyException(TownySettings.getLangString("msg_no_money_purchase_plot"));
 
@@ -403,9 +400,10 @@ public class PlotClaim extends Thread {
 	 * @throws TownyException 
 	 */
 	private void adminClaim(WorldCoord worldCoord) throws TownyException {
-
+		Bukkit.getLogger().info("admin");
 		try {
 			TownBlock townBlock = worldCoord.getTownBlock();
+			
 			@SuppressWarnings("unused") // Used to make sure a plot/town is here.
 			Town town = townBlock.getTown();
 			TownyUniverse townyUniverse = TownyUniverse.getInstance();

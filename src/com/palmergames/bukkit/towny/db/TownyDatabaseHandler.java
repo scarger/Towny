@@ -12,6 +12,7 @@ import com.palmergames.bukkit.towny.event.PreDeleteTownEvent;
 import com.palmergames.bukkit.towny.event.RenameNationEvent;
 import com.palmergames.bukkit.towny.event.RenameResidentEvent;
 import com.palmergames.bukkit.towny.event.RenameTownEvent;
+import com.palmergames.bukkit.towny.event.TownPreUnclaimEvent;
 import com.palmergames.bukkit.towny.event.TownUnclaimEvent;
 import com.palmergames.bukkit.towny.event.PreDeleteNationEvent;
 import com.palmergames.bukkit.towny.exceptions.AlreadyRegisteredException;
@@ -194,7 +195,7 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 		return universe.getTownsMap().get(name);
 	}
 	
-	public PlotObjectGroup getPlotObjectGroup(String worldName, String townName, UUID groupID) {
+	public PlotObjectGroup getPlotObjectGroup(String townName, UUID groupID) {
 		return universe.getGroup(townName, groupID);
 	}
 
@@ -330,6 +331,12 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 	}
 
 	public void removeOneOfManyTownBlocks(TownBlock townBlock, Town town) {
+		
+		TownPreUnclaimEvent event = new TownPreUnclaimEvent(townBlock);
+		BukkitTools.getPluginManager().callEvent(event);
+		
+		if (event.isCancelled())
+			return;
 
 		Resident resident = null;
 		try {
@@ -350,14 +357,13 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 				TownyRegenAPI.addPlotChunk(plotData, true);
 			}
 		}
-		
-		
-		deleteTownBlock(townBlock);
-		townBlock.clear();
+
 		if (resident != null)
 			saveResident(resident);
 
 		world.removeTownBlock(townBlock);
+
+		deleteTownBlock(townBlock);
 		// Raise an event to signal the unclaim
 		BukkitTools.getPluginManager().callEvent(new TownUnclaimEvent(town, coord));	
 	}
@@ -365,18 +371,23 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 	@Override
 	public void removeTownBlock(TownBlock townBlock) {
 
-		Resident resident = null;
+		TownPreUnclaimEvent event = new TownPreUnclaimEvent(townBlock);
+		BukkitTools.getPluginManager().callEvent(event);
+		
+		if (event.isCancelled())
+			return;
+		
 		Town town = null;
-		try {
-			resident = townBlock.getResident();
-		} catch (NotRegisteredException ignored) {
-		}
+//		Resident resident = null;                   - Removed in 0.95.2.5
+//		try {
+//			resident = townBlock.getResident();
+//		} catch (NotRegisteredException ignored) {
+//		}
 		try {
 			town = townBlock.getTown();
 		} catch (NotRegisteredException ignored) {
 		}
-		
-		
+
 		TownyWorld world = townBlock.getWorld();
 		world.removeTownBlock(townBlock);
 
@@ -384,10 +395,10 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 		deleteTownBlock(townBlock);
 
 		saveTownBlockList();
-		
 
-		if (resident != null)
-			saveResident(resident);
+//		if (resident != null)           - Removed in 0.95.2.5, residents don't store townblocks in them.
+//			saveResident(resident);
+
 //		if (town != null)         		- Removed in 0.91.1.2, possibly fixing SQL database corruption 
 //		    saveTown(town);				  occuring when towns are deleted. 
 
@@ -428,7 +439,7 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 		return townBlocks;
 	}
 	
-	public List<PlotObjectGroup> getAllGroups() {
+	public List<PlotObjectGroup> getAllPlotGroups() {
 		List<PlotObjectGroup> groups = new ArrayList<>();
 		groups.addAll(universe.getGroups());
 		
@@ -572,8 +583,8 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 		if (preEvent.isCancelled())
 			return;
 		
-
-		removeTownBlocks(town);		
+		removeManyTownBlocks(town);
+		//removeTownBlocks(town);		
 
 		List<Resident> toSave = new ArrayList<>(town.getResidents());
 		TownyWorld townyWorld = town.getWorld();
@@ -600,7 +611,10 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 
 		for (Resident resident : toSave) {
 			resident.clearModes();
-			removeResident(resident);
+			try {
+				town.removeResident(resident);
+			} catch (NotRegisteredException | EmptyTownException ignored) {
+			}
 			saveResident(resident);
 		}
 		
@@ -619,19 +633,18 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 			} catch (Exception ignored) {
 			}
 
-		universe.getTownsMap().remove(town.getName().toLowerCase());
-
-		plugin.resetCache();
-
-		deleteTown(town);
-		saveTownList();
 		try {
 			townyWorld.removeTown(town);
 		} catch (NotRegisteredException e) {
 			// Must already be removed
 		}
 		saveWorld(townyWorld);
-
+		
+		universe.getTownsMap().remove(town.getName().toLowerCase());
+		plugin.resetCache();
+		deleteTown(town);
+		saveTownList();
+		
 		BukkitTools.getPluginManager().callEvent(new DeleteTownEvent(town.getName()));
 	}
 
@@ -795,6 +808,8 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 				isCapital = town.isCapital();
 			}
 
+			TownyWorld world = town.getWorld();
+			world.removeTown(town);
 			/*
 			 * Tidy up old files.
 			 * Has to be done here else the town no longer exists
@@ -809,6 +824,7 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 			universe.getTownsMap().remove(town.getName().toLowerCase());
 			town.setName(filteredName);
 			universe.getTownsMap().put(filteredName.toLowerCase(), town);
+			world.addTown(town);
 
 			// If this was a nation capitol
 			if (isCapital) {
@@ -845,14 +861,15 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 				saveTownBlock(townBlock);
 			}
 			
-			for (PlotObjectGroup pg : town.getPlotObjectGroups()) {
-				pg.setTown(town);
-				savePlotGroup(pg);
-			}
+			if (town.hasObjectGroups())
+				for (PlotObjectGroup pg : town.getPlotObjectGroups()) {
+					pg.setTown(town);
+					savePlotGroup(pg);
+				}
 
 			saveTown(town);
 			saveTownList();
-			saveGroupList();
+			savePlotGroupList();
 			saveWorld(town.getWorld());
 
 			if (nation != null) {
@@ -975,10 +992,10 @@ public abstract class TownyDatabaseHandler extends TownyDataSource {
 		
 		// Save
 		savePlotGroup(group);
-		saveGroupList();
+		savePlotGroupList();
 
 		// Delete the old group file.
-		deleteGroup(group);
+		deletePlotGroup(group);
 	}
 
 	@Override

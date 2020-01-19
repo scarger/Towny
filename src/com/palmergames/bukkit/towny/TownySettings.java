@@ -1236,6 +1236,10 @@ public class TownySettings {
 		
 		return getBoolean(ConfigNodes.NOTIFICATION_OWNER_SHOWS_NATION_TITLE);
 	}
+	
+	public static boolean isNotificationsAppearingInActionBar() {
+		return getBoolean(ConfigNodes.NOTIFICATION_NOTIFICATIONS_APPEAR_IN_ACTION_BAR);
+	}
 
 	public static boolean getShowTownBoardOnLogin() {
 
@@ -1858,21 +1862,28 @@ public class TownySettings {
             } catch (NotRegisteredException e) {
                 e.printStackTrace();
             }
-            if (isUpkeepByPlot() && isTownLevelModifiersAffectingPlotBasedUpkeep()) {
-            	amount = (((getTownUpkeep() * multiplier) * Double.valueOf(getTownLevel(town).get(TownySettings.TownLevel.UPKEEP_MULTIPLIER).toString())) * nationMultiplier) ;
+            if (isUpkeepByPlot()) {
+            	if (isTownLevelModifiersAffectingPlotBasedUpkeep())
+            		amount = (((getTownUpkeep() * multiplier) * Double.valueOf(getTownLevel(town).get(TownySettings.TownLevel.UPKEEP_MULTIPLIER).toString())) * nationMultiplier);
+            	else
+            		amount = (getTownUpkeep() * multiplier) * nationMultiplier;
+            	if (TownySettings.getPlotBasedUpkeepMinimumAmount() > 0.0 && amount < TownySettings.getPlotBasedUpkeepMinimumAmount())
+               		amount = TownySettings.getPlotBasedUpkeepMinimumAmount();
+                return amount;
+            } else
+                return (getTownUpkeep() * multiplier) * nationMultiplier;
+        } else {
+            if (isUpkeepByPlot()) {
+            	if (isTownLevelModifiersAffectingPlotBasedUpkeep())
+            		amount = (getTownUpkeep() * multiplier) * Double.valueOf(getTownLevel(town).get(TownySettings.TownLevel.UPKEEP_MULTIPLIER).toString());
+            	else
+            		amount = getTownUpkeep() * multiplier;
                 if (TownySettings.getPlotBasedUpkeepMinimumAmount() > 0.0 && amount < TownySettings.getPlotBasedUpkeepMinimumAmount())
                		amount = TownySettings.getPlotBasedUpkeepMinimumAmount();
                 return amount;
             } else
-                return (getTownUpkeep() * multiplier) * nationMultiplier ;
-        } else
-            if (isUpkeepByPlot() && isTownLevelModifiersAffectingPlotBasedUpkeep()) {
-                amount = (getTownUpkeep() * multiplier) * Double.valueOf(getTownLevel(town).get(TownySettings.TownLevel.UPKEEP_MULTIPLIER).toString()) ;
-                if (TownySettings.getPlotBasedUpkeepMinimumAmount() > 0.0 && amount < TownySettings.getPlotBasedUpkeepMinimumAmount())
-               		amount = TownySettings.getPlotBasedUpkeepMinimumAmount();
-                return amount;
-            } else
-                return getTownUpkeep() * multiplier ;
+                return getTownUpkeep() * multiplier;
+        }
     }
 
 	public static double getTownUpkeep() {

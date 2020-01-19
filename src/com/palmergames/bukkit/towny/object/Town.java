@@ -606,6 +606,10 @@ public class Town extends TownBlockOwner implements ResidentList, TownyInviteRec
 	}
 
 	private void remove(Resident resident) {
+		
+		resident.setTitle("");
+		resident.setSurname("");
+		resident.updatePerms();
 
 		for (TownBlock townBlock : new ArrayList<>(resident.getTownBlocks())) {
 			
@@ -725,6 +729,7 @@ public class Town extends TownBlockOwner implements ResidentList, TownyInviteRec
 		removeAllResidents();
 		mayor = null;
 		residents.clear();
+		outlaws.clear();
 		homeBlock = null;
 		outpostSpawns.clear();
 		jailSpawns.clear();
@@ -1340,9 +1345,9 @@ public class Town extends TownBlockOwner implements ResidentList, TownyInviteRec
 	
 	public void addPlotGroup(PlotObjectGroup group) {
 		if (!hasObjectGroups()) 
-			this.plotGroups = new HashMap<>();
+			plotGroups = new HashMap<>();
 		
-		this.plotGroups.put(group.getGroupName(), group);
+		plotGroups.put(group.getGroupName(), group);
 		
 	}
 	
@@ -1354,18 +1359,6 @@ public class Town extends TownBlockOwner implements ResidentList, TownyInviteRec
 					TownyUniverse.getInstance().getDataSource().saveTownBlock(tb);
 				}
 			}
-		}
-	}
-	
-	public void setPlotGroups(String str) {
-		
-		if (plotGroups == null)
-			plotGroups = new HashMap<>();
-		
-		String[] groups = str.split(";");
-		
-		for (String groupStr : groups) {
-			addPlotGroup(PlotObjectGroup.fromString(groupStr));
 		}
 	}
 	

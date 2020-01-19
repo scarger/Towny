@@ -524,7 +524,10 @@ public class Resident extends TownBlockOwner implements ResidentModes, TownyInvi
 
 	}
 	
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/master
 	/**
 	 * Only for internal Towny use. NEVER call this from any other plugin.
 	 *
